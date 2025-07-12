@@ -44,8 +44,9 @@ function App() {
   const [initialValues, setInitialValues] = useState({
     title: "",
     description: "",
-    category: "",
+    category: "",   
   });
+  console.log("My App Launched")
 
   // Chart filter state
   const [chartFilter, setChartFilter] = useState(null);
