@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Calendar,
   Modal,
@@ -11,9 +11,10 @@ import {
   List,
   Space,
   Popconfirm,
+  message,
 } from "antd";
 import { useSelector, useDispatch } from "react-redux";
-import { addTask, deleteTask, editTask } from "./redux/taskSlice";
+import { addTask, deleteTask, editTask, clearAllTasks } from "./redux/taskSlice";
 import { Formik } from "formik";
 import * as Yup from "yup";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
@@ -44,11 +45,9 @@ function App() {
   const [initialValues, setInitialValues] = useState({
     title: "",
     description: "",
-    category: "",   
+    category: "",
   });
-  console.log("My App Launched")
 
-  // Chart filter state
   const [chartFilter, setChartFilter] = useState(null);
   const [tempFilter, setTempFilter] = useState(null);
 
@@ -57,6 +56,28 @@ function App() {
 
   const dateKey = selectedDate?.format("YYYY-MM-DD");
   const tasksForDate = dateKey ? tasks[dateKey] || [] : [];
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const storedTasks = localStorage.getItem("taskData");
+    if (storedTasks) {
+      try {
+        const parsed = JSON.parse(storedTasks);
+        Object.entries(parsed).forEach(([date, taskArray]) => {
+          taskArray.forEach((task) =>
+            dispatch(addTask({ date, task }))
+          );
+        });
+      } catch {
+        message.error("Failed to load saved tasks.");
+      }
+    }
+  }, [dispatch]);
+
+  // Save to localStorage when tasks change
+  useEffect(() => {
+    localStorage.setItem("taskData", JSON.stringify(tasks));
+  }, [tasks]);
 
   const onSelectDate = (value) => {
     setSelectedDate(value);
@@ -106,7 +127,12 @@ function App() {
     setIsModalOpen(true);
   };
 
-  // Aggregate chart data
+  const handleClearStorage = () => {
+    localStorage.removeItem("taskData");
+    dispatch(clearAllTasks());
+    message.success("All tasks cleared.");
+  };
+
   const allTasks = Object.values(tasks).flat();
   const filteredTasks = chartFilter
     ? allTasks.filter((task) => task.category === chartFilter)
@@ -122,11 +148,35 @@ function App() {
     return acc;
   }, []);
 
+  // Render tasks in calendar cell
+  const dateCellRender = (value) => {
+    const key = value.format("YYYY-MM-DD");
+    const dayTasks = tasks[key] || [];
+    return (
+      <ul className="events">
+        {dayTasks.slice(0, 2).map((task, index) => (
+          <li key={index}>
+            <Tag color={categoryColors[task.category]}>{task.title}</Tag>
+          </li>
+        ))}
+        {dayTasks.length > 2 && (
+          <li style={{ fontSize: 12 }}>+{dayTasks.length - 2} more</li>
+        )}
+      </ul>
+    );
+  };
+
   return (
     <div style={{ padding: 24 }}>
       <Title level={2}>📅 Task Manager</Title>
 
-      <Calendar fullscreen={false} onSelect={onSelectDate} />
+      <Space style={{ marginBottom: 16 }}>
+        <Button danger onClick={handleClearStorage}>
+          Clear All Tasks
+        </Button>
+      </Space>
+
+      <Calendar fullscreen={false} onSelect={onSelectDate} dateCellRender={dateCellRender} />
 
       {/* Chart Filter */}
       <div style={{ marginTop: 40 }}>
